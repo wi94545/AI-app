@@ -10,7 +10,7 @@ const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
 
 // Default Items
-let items = [];
+let items = ['今天吃什麼？'];
 let colors = [];
 
 // Wheel Config
