@@ -10,7 +10,7 @@ const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
 
 // Default Items
-let items = ['大薯', '冰炫風', '麥克雞塊', '蘋果派', '可樂', '玉米濃湯'];
+let items = [];
 let colors = [];
 
 // Wheel Config
