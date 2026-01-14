@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幸運轉盤 Wheel of Fortune</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Dashboard / Controls -->
+        <div class="controls-panel">
+            <header>
+                <h1>幸運轉盤</h1>
+                <p>輸入選項，試試手氣！</p>
+            </header>
+
+            <div class="input-group">
+                <input type="text" id="itemInput" placeholder="輸入選項 (例如: 飲料, 午餐)..." maxlength="20">
+                <button id="addItemBtn">新增</button>
+            </div>
+
+            <div class="items-list-container">
+                <h3>選項列表 <span id="itemCount">(0)</span></h3>
+                <ul id="itemsList">
+                    <!-- Items will be added here by JS -->
+                </ul>
+            </div>
+        </div>
+
+        <!-- Wheel Display -->
+        <div class="wheel-panel">
+            <div class="wheel-container">
+                <div class="pointer"></div>
+                <canvas id="wheelCanvas" width="500" height="500"></canvas>
+                <div class="center-circle">
+                    <button id="spinBtn">SPIN</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Winner Modal -->
+    <div id="winnerModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>🎉 結果出爐！ 🎉</h2>
+            <p class="winner-text" id="winnerText">...</p>
+            <button id="closeModalBtn">太棒了</button>
+        </div>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+
+</html>
