@@ -32,17 +32,29 @@ const winnerModal = document.getElementById('winnerModal');
 const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const historyList = document.getElementById('historyList');
+const categorySelect = document.getElementById('categorySelect'); // New
+const dropdownToggle = document.getElementById('dropdownToggle');
 
-// Suggestions Data
-const SUGGESTED_ITEMS = [
+// Constants & Defaults
+const SUGGESTED_DRINKS = [
     "茶湯會", "鶴茶樓", "50嵐", "迷克夏",
     "八曜和茶", "理茶", "珍煮丹", "龜記",
     "五桐號", "麻古茶坊", "先喝道", "一沐日"
 ];
 
+const DEFAULT_FOOD = [
+    "壽司", "拉麵", "小吃", "咖哩飯"
+];
+
 // State
-let items = []; // Array of objects: { text: string, weight: number }
-let history = []; // Array of objects: { result: string, timestamp: string }
+let allCategories = {
+    drinks: [],
+    food: [],
+    lottery: []
+};
+let currentCategory = 'drinks'; // Default start
+let items = []; // Current view (pointer to allCategories[currentCategory])
+let history = [];
 let colors = [];
 let currentUser = null;
 
@@ -77,36 +89,89 @@ function subscribeToData() {
     onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
-            const rawItems = data.items || [];
-            history = data.history || []; // Load history
+            history = data.history || [];
 
-            // Migration: Convert strings to objects if needed
-            items = rawItems.map(item => {
-                if (typeof item === 'string') {
-                    return { text: item, weight: 1 };
+            // Check for Migration (Old format has 'items' at root)
+            if (data.items && !data.categories) {
+                console.log("Migrating old data...");
+                const rawItems = data.items;
+                // Convert to objects if needed
+                const migratedDrinks = rawItems.map(item =>
+                    (typeof item === 'string') ? { text: item, weight: 1 } : item
+                );
+
+                allCategories = {
+                    drinks: migratedDrinks,
+                    food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
+                    lottery: []
+                };
+
+                // Save immediately to complete migration
+                saveDataToCloud();
+            } else if (data.categories) {
+                // New format
+                allCategories = data.categories;
+
+                // Ensure defaults if empty (safety net)
+                if (!allCategories.food || allCategories.food.length === 0) {
+                    // Only if completely missing, logic is tricky, usually we trust DB.
+                    // But for new users in 'categories' format, they might start empty.
+                    // The requirement is defaults on separate tabs.
+                    // Let's rely on Save to setup defaults if undefined.
                 }
-                return item;
-            });
+            } else {
+                // Totally fresh user
+                allCategories = {
+                    drinks: SUGGESTED_DRINKS.map(t => ({ text: t, weight: 1 })),
+                    food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
+                    lottery: []
+                };
+                saveDataToCloud();
+            }
 
-            console.log("Data loaded.", items.length, history.length);
+            // Sync View
+            switchCategory(currentCategory);
+            renderHistory();
+
         } else {
-            console.log("No existing data.");
+            console.log("No existing data, initiating defaults.");
+            allCategories = {
+                drinks: SUGGESTED_DRINKS.map(t => ({ text: t, weight: 1 })),
+                food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
+                lottery: []
+            };
+            saveDataToCloud();
+            switchCategory(currentCategory);
         }
-
-        generateColors();
-        drawWheel();
-        renderList();
-        renderHistory();
     });
 }
 
-// Unified Save Function
+function switchCategory(cat) {
+    currentCategory = cat;
+    items = allCategories[currentCategory] || [];
+
+    // Update Dropdown UI
+    categorySelect.value = cat;
+
+    // Toggle Suggestions Arrow (Visible only for Drinks)
+    if (cat === 'drinks') {
+        if (dropdownToggle) dropdownToggle.style.display = 'block';
+    } else {
+        if (dropdownToggle) dropdownToggle.style.display = 'none';
+        suggestionsList.classList.add('hidden');
+    }
+
+    generateColors();
+    drawWheel();
+    renderList();
+}
+
 async function saveDataToCloud() {
     if (!currentUser) return;
     try {
         await setDoc(doc(db, "users", currentUser.uid), {
-            items: items,
-            history: history, // Save history
+            categories: allCategories, // Save all cats
+            history: history,
             updatedAt: new Date()
         });
     } catch (e) {
@@ -142,7 +207,6 @@ function drawWheel() {
         const weight = items[i].weight || 1;
         const sliceAngle = (weight / totalWeight) * 2 * Math.PI;
 
-        // Draw Segment
         ctx.fillStyle = colors[i];
         ctx.beginPath();
         ctx.arc(250, 250, outsideRadius, currentAngle, currentAngle + sliceAngle, false);
@@ -150,16 +214,13 @@ function drawWheel() {
         ctx.stroke();
         ctx.fill();
 
-        // Draw Text
         ctx.save();
         ctx.fillStyle = "#fff";
         ctx.shadowColor = "rgba(0,0,0,0.5)";
         ctx.shadowBlur = 4;
-
         ctx.translate(250 + Math.cos(currentAngle + sliceAngle / 2) * textRadius,
             250 + Math.sin(currentAngle + sliceAngle / 2) * textRadius);
         ctx.rotate(currentAngle + sliceAngle / 2 + Math.PI / 2);
-
         const text = items[i].text;
         ctx.font = 'bold 16px Outfit, sans-serif';
         const metrics = ctx.measureText(text);
@@ -178,6 +239,7 @@ function spin() {
     if (isSpinning || items.length === 0) return;
     isSpinning = true;
     spinBtn.disabled = true;
+    categorySelect.disabled = true; // Disable switching while spinning
     spinTime = 0;
     spinTimeTotal = (Math.random() * 3000) + 4000;
     spinAngleStart = Math.random() * 10 + 10;
@@ -199,16 +261,11 @@ function rotateWheel() {
 function stopRotateWheel() {
     isSpinning = false;
     spinBtn.disabled = false;
+    categorySelect.disabled = false;
     cancelAnimationFrame(spinTimeout);
 
-    // Calculate winner logic
     const totalWeight = items.reduce((sum, item) => sum + (item.weight || 1), 0);
-    let currentRotation = startAngle % (2 * Math.PI);
-    if (currentRotation < 0) currentRotation += 2 * Math.PI;
-
-    // Pointer is at 270 deg (top) in canvas space
-    let pointerAngle = (3 * Math.PI / 2) - startAngle;
-    pointerAngle = pointerAngle % (2 * Math.PI);
+    let pointerAngle = ((3 * Math.PI / 2) - startAngle) % (2 * Math.PI);
     if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
 
     let currentAngle = 0;
@@ -217,7 +274,6 @@ function stopRotateWheel() {
     for (let i = 0; i < items.length; i++) {
         const weight = items[i].weight || 1;
         const sliceAngle = (weight / totalWeight) * 2 * Math.PI;
-
         if (pointerAngle >= currentAngle && pointerAngle < currentAngle + sliceAngle) {
             winnerIndex = i;
             break;
@@ -229,13 +285,11 @@ function stopRotateWheel() {
         const result = items[winnerIndex].text;
         showWinner(result);
 
-        // Record History
-        const record = {
+        history.unshift({
             result: result,
             timestamp: new Date().toISOString()
-        };
-        history.unshift(record); // Add to top
-        saveDataToCloud(); // Perform save
+        });
+        saveDataToCloud();
     }
 }
 
@@ -296,35 +350,23 @@ function formatDate(isoString) {
 
 function renderHistory() {
     historyList.innerHTML = '';
-
     if (history.length === 0) {
         historyList.innerHTML = '<li style="text-align:center;color:#64748b;margin-top:2rem;">尚無紀錄</li>';
         return;
     }
-
-    // Group by Date
     const groups = {};
     history.forEach(item => {
         const dateStr = formatDate(item.timestamp);
-        if (!groups[dateStr]) {
-            groups[dateStr] = [];
-        }
+        if (!groups[dateStr]) groups[dateStr] = [];
         groups[dateStr].push(item);
     });
-
-    // Render Groups
     Object.keys(groups).forEach(date => {
         const groupContainer = document.createElement('li');
         groupContainer.className = 'history-date-group';
-
         let html = `<div class="history-date">${date}</div>`;
-
         groups[date].forEach(item => {
-            html += `<div class="history-item">
-                        <span>${item.result}</span>
-                     </div>`;
+            html += `<div class="history-item"><span>${item.result}</span></div>`;
         });
-
         groupContainer.innerHTML = html;
         historyList.appendChild(groupContainer);
     });
@@ -356,17 +398,18 @@ function removeItem(index) {
 }
 
 function handleInput(e) {
+    // Only show suggestions for 'drinks'
+    if (currentCategory !== 'drinks') return;
+
     const val = e.target.value.trim().toLowerCase();
     if (!val) {
         suggestionsList.classList.add('hidden');
         if (dropdownToggle) dropdownToggle.classList.remove('open');
         return;
     }
-
-    const matches = SUGGESTED_ITEMS.filter(item =>
+    const matches = SUGGESTED_DRINKS.filter(item =>
         item.toLowerCase().includes(val)
     );
-
     if (matches.length > 0) {
         renderSuggestions(matches);
         if (dropdownToggle) dropdownToggle.classList.add('open');
@@ -400,16 +443,25 @@ function addListeners() {
 
     itemInput.addEventListener('input', handleInput);
 
-    const dropdownToggle = document.getElementById('dropdownToggle');
+    // Dropdown arrow listener
     if (dropdownToggle) {
         dropdownToggle.addEventListener('click', (e) => {
+            // Only for drinks
+            if (currentCategory !== 'drinks') return;
+
             e.stopPropagation();
             suggestionsList.classList.toggle('hidden');
             dropdownToggle.classList.toggle('open');
-
             if (!suggestionsList.classList.contains('hidden')) {
-                renderSuggestions(SUGGESTED_ITEMS);
+                renderSuggestions(SUGGESTED_DRINKS);
             }
+        });
+    }
+
+    // Category Switcher Listener
+    if (categorySelect) {
+        categorySelect.addEventListener('change', (e) => {
+            switchCategory(e.target.value);
         });
     }
 
