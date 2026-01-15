@@ -270,8 +270,8 @@ function renderList() {
         const weight = item.weight || 1;
 
         li.innerHTML = `
-            <input type="number" class="weight-input" data-index="${index}" value="${weight}" min="1" max="100">
             <span>${text}</span>
+            <input type="number" class="weight-input" data-index="${index}" value="${weight}" min="1" max="100" title="權重">
             <button class="delete-btn" data-index="${index}">&times;</button>
         `;
         itemsList.appendChild(li);

@@ -215,19 +215,24 @@ li.item span {
 }
 
 .weight-input {
-    width: 45px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid var(--border-color);
+    width: 50px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--primary-color);
     color: var(--text-color);
     border-radius: 6px;
     padding: 4px;
     text-align: center;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    margin-left: 10px;
+    /* Space from text */
 }
 
 .weight-input:focus {
+    background: rgba(255, 255, 255, 0.2);
     border-color: var(--accent-color);
     outline: none;
+    box-shadow: 0 0 0 2px rgba(236, 72, 153, 0.3);
 }
 
 li.item button.delete-btn {
