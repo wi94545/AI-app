@@ -42,6 +42,16 @@ const SUGGESTED_DRINKS = [
     "五桐號", "麻古茶坊", "先喝道", "一沐日"
 ];
 
+const SUGGESTED_FOOD = [
+    "壽司", "拉麵", "小吃", "咖哩飯",
+    "火鍋", "燒肉", "麥當勞", "便當"
+];
+
+const SUGGESTED_LOTTERY = [
+    "頭獎", "二獎", "三獎", "安慰獎",
+    "現金100元", "飲料請客", "再一次", "銘謝惠顧"
+];
+
 const DEFAULT_FOOD = [
     "壽司", "拉麵", "小吃", "咖哩飯"
 ];
@@ -53,7 +63,8 @@ let allCategories = {
     lottery: []
 };
 let currentCategory = 'drinks'; // Default start
-let items = []; // Current view (pointer to allCategories[currentCategory])
+let items = []; // Current view (pointer)
+let currentSuggestions = SUGGESTED_DRINKS; // Current suggestions
 let history = [];
 let colors = [];
 let currentUser = null;
@@ -153,13 +164,17 @@ function switchCategory(cat) {
     // Update Dropdown UI
     categorySelect.value = cat;
 
-    // Toggle Suggestions Arrow (Visible only for Drinks)
-    if (cat === 'drinks') {
-        if (dropdownToggle) dropdownToggle.style.display = 'block';
+    // Update Suggestions
+    if (cat === 'food') {
+        currentSuggestions = SUGGESTED_FOOD;
+    } else if (cat === 'lottery') {
+        currentSuggestions = SUGGESTED_LOTTERY;
     } else {
-        if (dropdownToggle) dropdownToggle.style.display = 'none';
-        suggestionsList.classList.add('hidden');
+        currentSuggestions = SUGGESTED_DRINKS;
     }
+
+    // Always show toggle (unless suggestions are empty, but we have defaults now)
+    if (dropdownToggle) dropdownToggle.style.display = 'block';
 
     generateColors();
     drawWheel();
@@ -398,16 +413,15 @@ function removeItem(index) {
 }
 
 function handleInput(e) {
-    // Only show suggestions for 'drinks'
-    if (currentCategory !== 'drinks') return;
-
     const val = e.target.value.trim().toLowerCase();
     if (!val) {
         suggestionsList.classList.add('hidden');
         if (dropdownToggle) dropdownToggle.classList.remove('open');
         return;
     }
-    const matches = SUGGESTED_DRINKS.filter(item =>
+
+    // Search within currentSuggestions
+    const matches = currentSuggestions.filter(item =>
         item.toLowerCase().includes(val)
     );
     if (matches.length > 0) {
@@ -446,14 +460,12 @@ function addListeners() {
     // Dropdown arrow listener
     if (dropdownToggle) {
         dropdownToggle.addEventListener('click', (e) => {
-            // Only for drinks
-            if (currentCategory !== 'drinks') return;
-
             e.stopPropagation();
             suggestionsList.classList.toggle('hidden');
             dropdownToggle.classList.toggle('open');
             if (!suggestionsList.classList.contains('hidden')) {
-                renderSuggestions(SUGGESTED_DRINKS);
+                // Show current category suggestions
+                renderSuggestions(currentSuggestions);
             }
         });
     }
