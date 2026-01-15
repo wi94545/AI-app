@@ -40,13 +40,13 @@ const SUGGESTED_ITEMS = [
 ];
 
 // State
-let items = []; // Start empty, will sync from DB
+let items = []; // Array of objects: { text: string, weight: number }
 let colors = [];
 let currentUser = null;
 
 // Wheel Config
 let startAngle = 0;
-let arc = Math.PI / (items.length / 2);
+// arc is no longer constant, calculated per item
 let spinTimeout = null;
 let spinAngleStart = 10;
 let spinTime = 0;
@@ -73,22 +73,27 @@ async function init() {
 function subscribeToData() {
     if (!currentUser) return;
 
-    // Listen to document 'users/{uid}'
     const userDocRef = doc(db, "users", currentUser.uid);
 
     onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
-            items = data.items || [];
+            const rawItems = data.items || [];
+
+            // Migration: Convert strings to objects if needed
+            items = rawItems.map(item => {
+                if (typeof item === 'string') {
+                    return { text: item, weight: 1 };
+                }
+                return item;
+            });
+
             console.log("Data loaded:", items);
         } else {
             console.log("No existing data, starting fresh.");
-            // User requested empty start, so we keep items as []
-            // items = []; 
-            // We don't save immediately if empty, waiting for user input
+            // items = []; // Start empty
         }
 
-        // Update UI whenever data changes
         generateColors();
         drawWheel();
         renderList();
@@ -127,16 +132,19 @@ function drawWheel() {
     ctx.clearRect(0, 0, 500, 500);
     ctx.strokeStyle = "#0f172a";
     ctx.lineWidth = 2;
-    arc = Math.PI * 2 / items.length;
+
+    const totalWeight = items.reduce((sum, item) => sum + (item.weight || 1), 0);
+    let currentAngle = startAngle;
 
     for (let i = 0; i < items.length; i++) {
-        const angle = startAngle + i * arc;
+        const weight = items[i].weight || 1;
+        const sliceAngle = (weight / totalWeight) * 2 * Math.PI; // Proportionate angle
 
         // Draw Segment
         ctx.fillStyle = colors[i];
         ctx.beginPath();
-        ctx.arc(250, 250, outsideRadius, angle, angle + arc, false);
-        ctx.arc(250, 250, insideRadius, angle + arc, angle, true);
+        ctx.arc(250, 250, outsideRadius, currentAngle, currentAngle + sliceAngle, false);
+        ctx.arc(250, 250, insideRadius, currentAngle + sliceAngle, currentAngle, true);
         ctx.stroke();
         ctx.fill();
 
@@ -146,11 +154,11 @@ function drawWheel() {
         ctx.shadowColor = "rgba(0,0,0,0.5)";
         ctx.shadowBlur = 4;
 
-        ctx.translate(250 + Math.cos(angle + arc / 2) * textRadius,
-            250 + Math.sin(angle + arc / 2) * textRadius);
-        ctx.rotate(angle + arc / 2 + Math.PI / 2);
+        ctx.translate(250 + Math.cos(currentAngle + sliceAngle / 2) * textRadius,
+            250 + Math.sin(currentAngle + sliceAngle / 2) * textRadius);
+        ctx.rotate(currentAngle + sliceAngle / 2 + Math.PI / 2);
 
-        const text = items[i];
+        const text = items[i].text;
         ctx.font = 'bold 16px Outfit, sans-serif';
         const metrics = ctx.measureText(text);
         if (metrics.width > 100) {
@@ -159,6 +167,8 @@ function drawWheel() {
             ctx.fillText(text, -metrics.width / 2, 0);
         }
         ctx.restore();
+
+        currentAngle += sliceAngle;
     }
 }
 
@@ -190,10 +200,49 @@ function stopRotateWheel() {
     cancelAnimationFrame(spinTimeout);
 
     const degrees = startAngle * 180 / Math.PI + 90;
-    const arcd = arc * 180 / Math.PI;
-    const index = Math.floor((360 - degrees % 360) / arcd);
+    const arcd = degrees % 360;
 
-    showWinner(items[index]);
+    // Calculate winner based on weights
+    const totalWeight = items.reduce((sum, item) => sum + (item.weight || 1), 0);
+    // Convert angle to "weight position"
+    // The wheel spins counter-clockwise visually (angles increase), so picking calculation needs care.
+    // Let's simplify: 360 - (degrees % 360) gives the angle at the pointer (top 0/360).
+    // Actually our draw logic starts at 0 (right) and goes clockwise? No ctx.arc default is clockwise.
+    // Standard drawing: 0 is right. Top is 270 (-90).
+    // Let's just traverse exactly like we draw.
+
+    // Normalize angle to [0, 2PI)
+    let currentRotation = startAngle % (2 * Math.PI);
+    if (currentRotation < 0) currentRotation += 2 * Math.PI;
+
+    // The pointer is at 270 degrees (Top) relative to the circle center.
+    // But since we rotate the whole wheel by startAngle, we need to find which segment intersects 270deg.
+    // Intersection condition: (startAngle + segmentStart) <= 270 <= (startAngle + segmentEnd)
+    // Normalized logic:
+    // Pointer Angle in "Wheel Space" = (270 degrees in radians - startAngle) normalized.
+
+    let pointerAngle = (3 * Math.PI / 2) - startAngle;
+    // Normalize to [0, 2PI)
+    pointerAngle = pointerAngle % (2 * Math.PI);
+    if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
+
+    let currentAngle = 0;
+    let winnerIndex = -1;
+
+    for (let i = 0; i < items.length; i++) {
+        const weight = items[i].weight || 1;
+        const sliceAngle = (weight / totalWeight) * 2 * Math.PI;
+
+        if (pointerAngle >= currentAngle && pointerAngle < currentAngle + sliceAngle) {
+            winnerIndex = i;
+            break;
+        }
+        currentAngle += sliceAngle;
+    }
+
+    if (winnerIndex !== -1) {
+        showWinner(items[winnerIndex].text);
+    }
 }
 
 function easeOut(t, b, c, d) {
@@ -215,28 +264,55 @@ function renderList() {
     items.forEach((item, index) => {
         const li = document.createElement('li');
         li.className = 'item';
+
+        // Use object properties
+        const text = item.text;
+        const weight = item.weight || 1;
+
         li.innerHTML = `
-            <span>${item}</span>
+            <input type="number" class="weight-input" data-index="${index}" value="${weight}" min="1" max="100">
+            <span>${text}</span>
             <button class="delete-btn" data-index="${index}">&times;</button>
         `;
         itemsList.appendChild(li);
     });
 
+    // Delete Listeners
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.dataset.index);
             removeItem(idx);
         });
     });
+
+    // Weight Input Listeners
+    document.querySelectorAll('.weight-input').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.index);
+            let val = parseInt(e.target.value);
+            if (val < 1) val = 1; // Minimum weight 1
+            updateWeight(idx, val);
+        });
+        // Also update on manual entry (keyup) if needed, but 'change' is safer for sync
+    });
+}
+
+function updateWeight(index, newWeight) {
+    if (items[index]) {
+        items[index].weight = newWeight;
+        saveItemsToCloud(); // Save change
+        drawWheel(); // Redraw immediately so user sees size change
+    }
 }
 
 function addItem(value) {
     const val = value || itemInput.value.trim();
     if (val) {
-        items.push(val);
+        // Add as object with default weight 1
+        items.push({ text: val, weight: 1 });
         itemInput.value = '';
         suggestionsList.classList.add('hidden');
-        if (dropdownToggle) dropdownToggle.classList.remove('open'); // Auto close dropdown on add
+        if (dropdownToggle) dropdownToggle.classList.remove('open');
         saveItemsToCloud();
     }
 }
@@ -293,15 +369,17 @@ function addListeners() {
     itemInput.addEventListener('input', handleInput);
 
     const dropdownToggle = document.getElementById('dropdownToggle');
-    dropdownToggle.addEventListener('click', (e) => {
-        e.stopPropagation();
-        suggestionsList.classList.toggle('hidden');
-        dropdownToggle.classList.toggle('open');
+    if (dropdownToggle) {
+        dropdownToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            suggestionsList.classList.toggle('hidden');
+            dropdownToggle.classList.toggle('open');
 
-        if (!suggestionsList.classList.contains('hidden')) {
-            renderSuggestions(SUGGESTED_ITEMS);
-        }
-    });
+            if (!suggestionsList.classList.contains('hidden')) {
+                renderSuggestions(SUGGESTED_ITEMS);
+            }
+        });
+    }
 
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.input-wrapper')) {

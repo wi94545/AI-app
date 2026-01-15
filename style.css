@@ -176,9 +176,17 @@ button#addItemBtn:hover {
     text-transform: uppercase;
     letter-spacing: 1px;
     color: var(--text-muted);
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
+    /* Reduced margin */
     display: flex;
     justify-content: space-between;
+}
+
+.weight-instruction {
+    font-size: 0.75rem;
+    color: var(--accent-color);
+    margin-bottom: 1rem;
+    opacity: 0.9;
 }
 
 ul#itemsList {
@@ -189,16 +197,37 @@ li.item {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid var(--border-color);
     margin-bottom: 0.5rem;
-    padding: 0.8rem;
+    padding: 0.6rem 0.8rem;
     border-radius: 10px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     animation: slideIn 0.3s ease-out;
+    gap: 10px;
 }
 
 li.item span {
     font-size: 0.95rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.weight-input {
+    width: 45px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 6px;
+    padding: 4px;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+.weight-input:focus {
+    border-color: var(--accent-color);
+    outline: none;
 }
 
 li.item button.delete-btn {
@@ -208,6 +237,7 @@ li.item button.delete-btn {
     cursor: pointer;
     font-size: 1.2rem;
     transition: color 0.2s;
+    padding: 0 5px;
 }
 
 li.item button.delete-btn:hover {
