@@ -29,8 +29,8 @@ body {
 
 .app-container {
     display: flex;
-    width: 90%;
-    max-width: 1200px;
+    width: 95%;
+    max-width: 1400px;
     height: 85vh;
     background: var(--panel-bg);
     backdrop-filter: blur(12px);
@@ -42,16 +42,16 @@ body {
 
 /* Controls Panel (Left) */
 .controls-panel {
-    width: 350px;
+    width: 300px;
     padding: 2rem;
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    background: rgba(15, 23, 42, 0.5);
+    background: rgba(15, 23, 42, 0.3);
 }
 
 header h1 {
-    font-size: 2rem;
+    font-size: 1.8rem;
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -60,7 +60,7 @@ header h1 {
 
 header p {
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     margin-bottom: 2rem;
 }
 
@@ -69,7 +69,6 @@ header p {
     gap: 0.5rem;
     margin-bottom: 2rem;
     position: relative;
-    /* For z-index context if needed */
 }
 
 .input-wrapper {
@@ -83,7 +82,6 @@ input[type="text"] {
     border: 1px solid var(--border-color);
     padding: 0.8rem;
     padding-right: 2.5rem;
-    /* Space for arrow */
     border-radius: 12px;
     color: white;
     outline: none;
@@ -112,7 +110,6 @@ input[type="text"]:focus {
     transform: translateY(-50%) rotate(180deg);
 }
 
-/* Suggestions Dropdown */
 .suggestions-list {
     position: absolute;
     top: calc(100% + 5px);
@@ -177,7 +174,6 @@ button#addItemBtn:hover {
     letter-spacing: 1px;
     color: var(--text-muted);
     margin-bottom: 0.5rem;
-    /* Reduced margin */
     display: flex;
     justify-content: space-between;
 }
@@ -225,7 +221,6 @@ li.item span {
     font-size: 0.9rem;
     font-weight: bold;
     margin-left: 10px;
-    /* Space from text */
 }
 
 .weight-input:focus {
@@ -249,7 +244,75 @@ li.item button.delete-btn:hover {
     color: #ef4444;
 }
 
-/* Wheel Panel (Right) */
+/* History Panel (Right) */
+.history-panel {
+    width: 300px;
+    padding: 2rem;
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.3);
+}
+
+.history-panel h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-color);
+}
+
+.history-list-container {
+    flex: 1;
+    overflow-y: auto;
+}
+
+ul#historyList {
+    list-style: none;
+}
+
+.history-date-group {
+    margin-bottom: 1.5rem;
+}
+
+.history-date {
+    font-size: 0.8rem;
+    color: var(--accent-color);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.history-item {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    padding: 0.4rem 0;
+    padding-left: 0.8rem;
+    border-left: 2px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 0.2rem;
+    display: flex;
+    justify-content: space-between;
+    animation: fadeIn 0.5s ease;
+}
+
+.history-item span.time {
+    font-size: 0.75rem;
+    opacity: 0.5;
+    margin-right: 10px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Wheel Panel (Center) */
 .wheel-panel {
     flex: 1;
     display: flex;
@@ -261,8 +324,9 @@ li.item button.delete-btn:hover {
 
 .wheel-container {
     position: relative;
-    width: 500px;
-    height: 500px;
+    width: 450px;
+    /* Slightly smaller for 3 columns */
+    height: 450px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -405,7 +469,7 @@ button#closeModalBtn:hover {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
     .app-container {
         flex-direction: column;
         height: auto;
@@ -413,9 +477,10 @@ button#closeModalBtn:hover {
         overflow-y: auto;
     }
 
-    .controls-panel {
+    .controls-panel,
+    .history-panel {
         width: 100%;
-        border-right: none;
+        border: none;
         border-bottom: 1px solid var(--border-color);
     }
 

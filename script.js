@@ -31,6 +31,7 @@ const itemCountSpan = document.getElementById('itemCount');
 const winnerModal = document.getElementById('winnerModal');
 const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
+const historyList = document.getElementById('historyList');
 
 // Suggestions Data
 const SUGGESTED_ITEMS = [
@@ -41,12 +42,12 @@ const SUGGESTED_ITEMS = [
 
 // State
 let items = []; // Array of objects: { text: string, weight: number }
+let history = []; // Array of objects: { result: string, timestamp: string }
 let colors = [];
 let currentUser = null;
 
 // Wheel Config
 let startAngle = 0;
-// arc is no longer constant, calculated per item
 let spinTimeout = null;
 let spinAngleStart = 10;
 let spinTime = 0;
@@ -61,9 +62,7 @@ async function init() {
         currentUser = userCredential.user;
         console.log("Signed in as:", currentUser.uid);
 
-        // Start listening to the database
         subscribeToData();
-
         addListeners();
     } catch (error) {
         console.error("Auth Error:", error);
@@ -79,6 +78,7 @@ function subscribeToData() {
         if (docSnap.exists()) {
             const data = docSnap.data();
             const rawItems = data.items || [];
+            history = data.history || []; // Load history
 
             // Migration: Convert strings to objects if needed
             items = rawItems.map(item => {
@@ -88,27 +88,29 @@ function subscribeToData() {
                 return item;
             });
 
-            console.log("Data loaded:", items);
+            console.log("Data loaded.", items.length, history.length);
         } else {
-            console.log("No existing data, starting fresh.");
-            // items = []; // Start empty
+            console.log("No existing data.");
         }
 
         generateColors();
         drawWheel();
         renderList();
+        renderHistory();
     });
 }
 
-async function saveItemsToCloud() {
+// Unified Save Function
+async function saveDataToCloud() {
     if (!currentUser) return;
     try {
         await setDoc(doc(db, "users", currentUser.uid), {
             items: items,
+            history: history, // Save history
             updatedAt: new Date()
         });
     } catch (e) {
-        console.error("Error saving items:", e);
+        console.error("Error saving data:", e);
     }
 }
 
@@ -138,7 +140,7 @@ function drawWheel() {
 
     for (let i = 0; i < items.length; i++) {
         const weight = items[i].weight || 1;
-        const sliceAngle = (weight / totalWeight) * 2 * Math.PI; // Proportionate angle
+        const sliceAngle = (weight / totalWeight) * 2 * Math.PI;
 
         // Draw Segment
         ctx.fillStyle = colors[i];
@@ -199,30 +201,13 @@ function stopRotateWheel() {
     spinBtn.disabled = false;
     cancelAnimationFrame(spinTimeout);
 
-    const degrees = startAngle * 180 / Math.PI + 90;
-    const arcd = degrees % 360;
-
-    // Calculate winner based on weights
+    // Calculate winner logic
     const totalWeight = items.reduce((sum, item) => sum + (item.weight || 1), 0);
-    // Convert angle to "weight position"
-    // The wheel spins counter-clockwise visually (angles increase), so picking calculation needs care.
-    // Let's simplify: 360 - (degrees % 360) gives the angle at the pointer (top 0/360).
-    // Actually our draw logic starts at 0 (right) and goes clockwise? No ctx.arc default is clockwise.
-    // Standard drawing: 0 is right. Top is 270 (-90).
-    // Let's just traverse exactly like we draw.
-
-    // Normalize angle to [0, 2PI)
     let currentRotation = startAngle % (2 * Math.PI);
     if (currentRotation < 0) currentRotation += 2 * Math.PI;
 
-    // The pointer is at 270 degrees (Top) relative to the circle center.
-    // But since we rotate the whole wheel by startAngle, we need to find which segment intersects 270deg.
-    // Intersection condition: (startAngle + segmentStart) <= 270 <= (startAngle + segmentEnd)
-    // Normalized logic:
-    // Pointer Angle in "Wheel Space" = (270 degrees in radians - startAngle) normalized.
-
+    // Pointer is at 270 deg (top) in canvas space
     let pointerAngle = (3 * Math.PI / 2) - startAngle;
-    // Normalize to [0, 2PI)
     pointerAngle = pointerAngle % (2 * Math.PI);
     if (pointerAngle < 0) pointerAngle += 2 * Math.PI;
 
@@ -241,7 +226,16 @@ function stopRotateWheel() {
     }
 
     if (winnerIndex !== -1) {
-        showWinner(items[winnerIndex].text);
+        const result = items[winnerIndex].text;
+        showWinner(result);
+
+        // Record History
+        const record = {
+            result: result,
+            timestamp: new Date().toISOString()
+        };
+        history.unshift(record); // Add to top
+        saveDataToCloud(); // Perform save
     }
 }
 
@@ -264,8 +258,6 @@ function renderList() {
     items.forEach((item, index) => {
         const li = document.createElement('li');
         li.className = 'item';
-
-        // Use object properties
         const text = item.text;
         const weight = item.weight || 1;
 
@@ -277,7 +269,6 @@ function renderList() {
         itemsList.appendChild(li);
     });
 
-    // Delete Listeners
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.dataset.index);
@@ -285,42 +276,83 @@ function renderList() {
         });
     });
 
-    // Weight Input Listeners
     document.querySelectorAll('.weight-input').forEach(input => {
         input.addEventListener('change', (e) => {
             const idx = parseInt(e.target.dataset.index);
             let val = parseInt(e.target.value);
-            if (val < 1) val = 1; // Minimum weight 1
+            if (val < 1) val = 1;
             updateWeight(idx, val);
         });
-        // Also update on manual entry (keyup) if needed, but 'change' is safer for sync
+    });
+}
+
+function formatDate(isoString) {
+    const date = new Date(isoString);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}/${m}/${d}`;
+}
+
+function renderHistory() {
+    historyList.innerHTML = '';
+
+    if (history.length === 0) {
+        historyList.innerHTML = '<li style="text-align:center;color:#64748b;margin-top:2rem;">尚無紀錄</li>';
+        return;
+    }
+
+    // Group by Date
+    const groups = {};
+    history.forEach(item => {
+        const dateStr = formatDate(item.timestamp);
+        if (!groups[dateStr]) {
+            groups[dateStr] = [];
+        }
+        groups[dateStr].push(item);
+    });
+
+    // Render Groups
+    Object.keys(groups).forEach(date => {
+        const groupContainer = document.createElement('li');
+        groupContainer.className = 'history-date-group';
+
+        let html = `<div class="history-date">${date}</div>`;
+
+        groups[date].forEach(item => {
+            html += `<div class="history-item">
+                        <span>${item.result}</span>
+                     </div>`;
+        });
+
+        groupContainer.innerHTML = html;
+        historyList.appendChild(groupContainer);
     });
 }
 
 function updateWeight(index, newWeight) {
     if (items[index]) {
         items[index].weight = newWeight;
-        saveItemsToCloud(); // Save change
-        drawWheel(); // Redraw immediately so user sees size change
+        saveDataToCloud();
+        drawWheel();
     }
 }
 
 function addItem(value) {
     const val = value || itemInput.value.trim();
     if (val) {
-        // Add as object with default weight 1
         items.push({ text: val, weight: 1 });
         itemInput.value = '';
         suggestionsList.classList.add('hidden');
         if (dropdownToggle) dropdownToggle.classList.remove('open');
-        saveItemsToCloud();
+        saveDataToCloud();
     }
 }
 
 function removeItem(index) {
     if (isSpinning) return;
     items.splice(index, 1);
-    saveItemsToCloud();
+    saveDataToCloud();
 }
 
 function handleInput(e) {
