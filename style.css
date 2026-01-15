@@ -68,13 +68,22 @@ header p {
     display: flex;
     gap: 0.5rem;
     margin-bottom: 2rem;
+    position: relative;
+    /* For z-index context if needed */
+}
+
+.input-wrapper {
+    position: relative;
+    flex: 1;
 }
 
 input[type="text"] {
-    flex: 1;
+    width: 100%;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid var(--border-color);
     padding: 0.8rem;
+    padding-right: 2.5rem;
+    /* Space for arrow */
     border-radius: 12px;
     color: white;
     outline: none;
@@ -84,6 +93,61 @@ input[type="text"] {
 input[type="text"]:focus {
     border-color: var(--primary-color);
     background: rgba(255, 255, 255, 0.1);
+}
+
+.dropdown-arrow {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.8rem;
+    pointer-events: auto;
+    user-select: none;
+    transition: transform 0.2s;
+}
+
+.dropdown-arrow.open {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+/* Suggestions Dropdown */
+.suggestions-list {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    width: 100%;
+    background: #1e293b;
+    border: 1px solid var(--primary-color);
+    border-radius: 12px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 9999;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    list-style: none;
+}
+
+.suggestions-list.hidden {
+    display: none;
+}
+
+.suggestion-item {
+    padding: 0.8rem;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    transition: all 0.2s;
+}
+
+.suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestion-item:hover {
+    background: var(--primary-color);
+    color: white;
 }
 
 button#addItemBtn {
@@ -183,7 +247,7 @@ canvas#wheelCanvas {
     height: 80px;
     background: white;
     border-radius: 50%;
-    box-shadow: 0 0 15px rgba(0,0,0,0.3);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
     z-index: 10;
     display: flex;
     justify-content: center;
@@ -225,7 +289,7 @@ button#spinBtn:disabled {
     background: #fbbf24;
     clip-path: polygon(50% 100%, 0 0, 100% 0);
     z-index: 20;
-    filter: drop-shadow(0 4px 4px rgba(0,0,0,0.3));
+    filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.3));
 }
 
 /* Modal */
@@ -295,8 +359,15 @@ button#closeModalBtn:hover {
 }
 
 @keyframes slideIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 @media (max-width: 768px) {
@@ -306,11 +377,13 @@ button#closeModalBtn:hover {
         min-height: 90vh;
         overflow-y: auto;
     }
+
     .controls-panel {
         width: 100%;
         border-right: none;
         border-bottom: 1px solid var(--border-color);
     }
+
     .wheel-container {
         width: 350px;
         height: 350px;

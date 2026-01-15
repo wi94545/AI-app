@@ -24,12 +24,20 @@ const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
 const spinBtn = document.getElementById('spinBtn');
 const itemInput = document.getElementById('itemInput');
+const suggestionsList = document.getElementById('suggestionsList');
 const addItemBtn = document.getElementById('addItemBtn');
 const itemsList = document.getElementById('itemsList');
 const itemCountSpan = document.getElementById('itemCount');
 const winnerModal = document.getElementById('winnerModal');
 const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
+
+// Suggestions Data
+const SUGGESTED_ITEMS = [
+    "茶湯會", "鶴茶樓", "50嵐", "迷克夏",
+    "八曜和茶", "理茶", "珍煮丹", "龜記",
+    "五桐號", "麻古茶坊", "先喝道", "一沐日"
+];
 
 // State
 let items = []; // Start empty, will sync from DB
@@ -75,7 +83,9 @@ function subscribeToData() {
             console.log("Data loaded:", items);
         } else {
             console.log("No existing data, starting fresh.");
-            items = []; // New user starts with empty list
+            // User requested empty start, so we keep items as []
+            // items = []; 
+            // We don't save immediately if empty, waiting for user input
         }
 
         // Update UI whenever data changes
@@ -98,7 +108,6 @@ async function saveItemsToCloud() {
 }
 
 function generateColors() {
-    // Generate a beautiful palette based on item count
     colors = items.map((_, i) => {
         const hue = i * (360 / items.length);
         return `hsl(${hue}, 70%, 60%)`;
@@ -144,7 +153,6 @@ function drawWheel() {
         const text = items[i];
         ctx.font = 'bold 16px Outfit, sans-serif';
         const metrics = ctx.measureText(text);
-        // Truncate text if too long
         if (metrics.width > 100) {
             ctx.fillText(text.substring(0, 8) + '...', -40, 0);
         } else {
@@ -181,7 +189,6 @@ function stopRotateWheel() {
     spinBtn.disabled = false;
     cancelAnimationFrame(spinTimeout);
 
-    // Normalize angle to find winner
     const degrees = startAngle * 180 / Math.PI + 90;
     const arcd = arc * 180 / Math.PI;
     const index = Math.floor((360 - degrees % 360) / arcd);
@@ -215,7 +222,6 @@ function renderList() {
         itemsList.appendChild(li);
     });
 
-    // Re-attach delete listeners
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const idx = parseInt(e.target.dataset.index);
@@ -224,33 +230,90 @@ function renderList() {
     });
 }
 
-// Actions now just update Cloud, UI updates via listener
-function addItem() {
-    const val = itemInput.value.trim();
+function addItem(value) {
+    const val = value || itemInput.value.trim();
     if (val) {
         items.push(val);
         itemInput.value = '';
-        saveItemsToCloud(); // Save to Firebase
+        suggestionsList.classList.add('hidden');
+        if (dropdownToggle) dropdownToggle.classList.remove('open'); // Auto close dropdown on add
+        saveItemsToCloud();
     }
 }
 
 function removeItem(index) {
     if (isSpinning) return;
     items.splice(index, 1);
-    saveItemsToCloud(); // Save to Firebase
+    saveItemsToCloud();
+}
+
+function handleInput(e) {
+    const val = e.target.value.trim().toLowerCase();
+    if (!val) {
+        suggestionsList.classList.add('hidden');
+        if (dropdownToggle) dropdownToggle.classList.remove('open');
+        return;
+    }
+
+    const matches = SUGGESTED_ITEMS.filter(item =>
+        item.toLowerCase().includes(val)
+    );
+
+    if (matches.length > 0) {
+        renderSuggestions(matches);
+        if (dropdownToggle) dropdownToggle.classList.add('open');
+    } else {
+        suggestionsList.classList.add('hidden');
+        if (dropdownToggle) dropdownToggle.classList.remove('open');
+    }
+}
+
+function renderSuggestions(matches) {
+    suggestionsList.innerHTML = '';
+    matches.forEach(match => {
+        const li = document.createElement('li');
+        li.className = 'suggestion-item';
+        li.textContent = match;
+        li.addEventListener('click', () => {
+            addItem(match);
+        });
+        suggestionsList.appendChild(li);
+    });
+    suggestionsList.classList.remove('hidden');
 }
 
 function addListeners() {
     spinBtn.addEventListener('click', spin);
-    addItemBtn.addEventListener('click', addItem);
+    addItemBtn.addEventListener('click', () => addItem());
+
     itemInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') addItem();
     });
+
+    itemInput.addEventListener('input', handleInput);
+
+    const dropdownToggle = document.getElementById('dropdownToggle');
+    dropdownToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        suggestionsList.classList.toggle('hidden');
+        dropdownToggle.classList.toggle('open');
+
+        if (!suggestionsList.classList.contains('hidden')) {
+            renderSuggestions(SUGGESTED_ITEMS);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.input-wrapper')) {
+            suggestionsList.classList.add('hidden');
+            if (dropdownToggle) dropdownToggle.classList.remove('open');
+        }
+    });
+
     closeModalBtn.addEventListener('click', () => {
         winnerModal.classList.remove('show');
         setTimeout(() => winnerModal.classList.add('hidden'), 300);
     });
 }
 
-// Start
 init();

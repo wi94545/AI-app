@@ -21,7 +21,11 @@
             </header>
 
             <div class="input-group">
-                <input type="text" id="itemInput" placeholder="輸入選項 (例如: 飲料, 午餐)..." maxlength="20">
+                <div class="input-wrapper">
+                    <input type="text" id="itemInput" placeholder="輸入選項 或 選擇預設..." maxlength="20" autocomplete="off">
+                    <span id="dropdownToggle" class="dropdown-arrow">▼</span>
+                    <ul id="suggestionsList" class="suggestions-list hidden"></ul>
+                </div>
                 <button id="addItemBtn">新增</button>
             </div>
 
