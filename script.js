@@ -112,9 +112,9 @@ function subscribeToData() {
                 );
 
                 allCategories = {
-                    drinks: migratedDrinks,
-                    food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
-                    lottery: []
+                    drinks: migratedDrinks, // Keep existing user data
+                    food: [], // Start empty
+                    lottery: [] // Start empty
                 };
 
                 // Save immediately to complete migration
@@ -123,19 +123,17 @@ function subscribeToData() {
                 // New format
                 allCategories = data.categories;
 
-                // Ensure defaults if empty (safety net)
-                if (!allCategories.food || allCategories.food.length === 0) {
-                    // Only if completely missing, logic is tricky, usually we trust DB.
-                    // But for new users in 'categories' format, they might start empty.
-                    // The requirement is defaults on separate tabs.
-                    // Let's rely on Save to setup defaults if undefined.
-                }
+                // Ensure structure exists
+                if (!allCategories.food) allCategories.food = [];
+                if (!allCategories.drinks) allCategories.drinks = [];
+                if (!allCategories.lottery) allCategories.lottery = [];
+
             } else {
                 // Totally fresh user
                 allCategories = {
-                    drinks: SUGGESTED_DRINKS.map(t => ({ text: t, weight: 1 })),
-                    food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
-                    lottery: []
+                    drinks: [], // Start empty
+                    food: [], // Start empty
+                    lottery: [] // Start empty
                 };
                 saveDataToCloud();
             }
@@ -147,9 +145,9 @@ function subscribeToData() {
         } else {
             console.log("No existing data, initiating defaults.");
             allCategories = {
-                drinks: SUGGESTED_DRINKS.map(t => ({ text: t, weight: 1 })),
-                food: DEFAULT_FOOD.map(t => ({ text: t, weight: 1 })),
-                lottery: []
+                drinks: [], // Start empty
+                food: [], // Start empty
+                lottery: [] // Start empty
             };
             saveDataToCloud();
             switchCategory(currentCategory);
