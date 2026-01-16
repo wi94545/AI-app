@@ -32,7 +32,7 @@ const winnerModal = document.getElementById('winnerModal');
 const winnerText = document.getElementById('winnerText');
 const closeModalBtn = document.getElementById('closeModalBtn');
 const historyList = document.getElementById('historyList');
-const categorySelect = document.getElementById('categorySelect'); // New
+const categorySelect = document.getElementById('categorySelect');
 const dropdownToggle = document.getElementById('dropdownToggle');
 
 // Constants & Defaults
@@ -101,6 +101,11 @@ function subscribeToData() {
         if (docSnap.exists()) {
             const data = docSnap.data();
             history = data.history || [];
+
+            // Enforce Limit on Load immediately
+            if (history.length > 20) {
+                history = history.slice(0, 20);
+            }
 
             // Check for Migration (Old format has 'items' at root)
             if (data.items && !data.categories) {
@@ -368,13 +373,19 @@ function formatDate(isoString) {
 }
 
 function renderHistory() {
+    // Force View Limit safety net
+    let viewHistory = history;
+    if (viewHistory.length > 20) {
+        viewHistory = viewHistory.slice(0, 20);
+    }
+
     historyList.innerHTML = '';
-    if (history.length === 0) {
+    if (viewHistory.length === 0) {
         historyList.innerHTML = '<li style="text-align:center;color:#64748b;margin-top:2rem;">尚無紀錄</li>';
         return;
     }
     const groups = {};
-    history.forEach(item => {
+    viewHistory.forEach(item => {
         const dateStr = formatDate(item.timestamp);
         if (!groups[dateStr]) groups[dateStr] = [];
         groups[dateStr].push(item);
