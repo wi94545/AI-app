@@ -302,6 +302,12 @@ function stopRotateWheel() {
             result: result,
             timestamp: new Date().toISOString()
         });
+
+        // Limit to 20 items
+        if (history.length > 20) {
+            history = history.slice(0, 20);
+        }
+
         saveDataToCloud();
     }
 }
